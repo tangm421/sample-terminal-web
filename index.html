@@ -1,0 +1,220 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>sample-terminal</title>
+    <link rel="stylesheet" type="text/css" href="page.css" />
+    <link rel="stylesheet" type="text/css" href="menu.css" />
+</head>
+
+<body>
+    <form class="form">
+        <input type="url" placeholder="ws://localhost:9002" class="address" id="address" value="ws://localhost:9002" />
+        <input type="button" id="connect" />
+        <ul class="content" id="content"></ul>
+        <input type="button" value="Clear" class="clear" id="clear" />
+        <input type="text" placeholder="command" class="message" id="message" />
+        <input type="button" value="Send" class="send" id="send" />
+    </form>
+</body>
+
+</html>
+
+
+
+<script>
+    var oAddress = document.getElementById('address');
+    var oConnect = document.getElementById('connect');
+    var oUl = document.getElementById('content');
+    var oClear = document.getElementById('clear');
+    var oInput = document.getElementById('message');
+    var oSend = document.getElementById('send');
+    var wsc = null;
+    var connected = false;
+    
+    var li_content;
+
+    function getLocalTime() {
+        return (new Date()).toLocaleDateString() + " " + (new Date()).toLocaleTimeString();
+    };
+
+    function scrollUL(li) {
+        // scroll UL to make li visible
+        // li can be the li element or its id
+        if (typeof li !== "object") {
+            li = document.getElementById(li);
+        }
+        var ul = li.parentNode;
+        // fudge adjustment for borders effect on offsetHeight
+        var fudge = 4;
+        // bottom most position needed for viewing
+        var bottom = (ul.scrollTop + (ul.offsetHeight - fudge) - li.offsetHeight);
+        // top most position needed for viewing
+        var top = ul.scrollTop + fudge;
+        if (li.offsetTop <= top) {
+            // move to top position if LI above it
+            // use algebra to subtract fudge from both sides to solve for ul.scrollTop
+            ul.scrollTop = li.offsetTop - fudge;
+        } else if (li.offsetTop >= bottom) {
+            // move to bottom position if LI below it
+            // use algebra to subtract ((ul.offsetHeight - fudge) - li.offsetHeight) from both sides to solve for ul.scrollTop
+            ul.scrollTop = li.offsetTop - ((ul.offsetHeight - fudge) - li.offsetHeight);
+        }
+    };
+
+    setInterval(() => {
+        if (connected) {
+            oConnect.value = "Disconnect";
+            oConnect.className = "disconnect";
+
+            oInput.style.display = "inline-block";
+            oSend.style.display = "inline-block";
+        }
+        else {
+            oConnect.value = "Connect";
+            oConnect.className = "connect";
+
+            oInput.style.display = "none";
+            oSend.style.display = "none";
+        }
+    }, 100);
+
+    oConnect.onclick = function () {
+        if (connected) {
+            wsc.close();
+        } else {
+            wsc = new WebSocket(oAddress.value);
+        }
+
+        wsc.onopen = function (evt) {
+            connected = true;
+            document.title = oAddress.value + " - simple-terminal";
+            oUl.innerHTML += "<li><span style='color: rgb(0, 219, 0)'>" + getLocalTime() + " [Connected]</span></li>";
+            scrollUL(oUl.lastElementChild);
+        };
+        wsc.onclose = function (evt) {
+            connected = false;
+            document.title = "simple-terminal";
+            oUl.innerHTML += "<li><span style='color: rgb(219, 0, 0)'>" + getLocalTime() + " [Disconnected]</span> code: "
+                + evt.code + ", reason: " + evt.reason + ", peace: " + evt.wasClean + "</li>";
+            scrollUL(oUl.lastElementChild);
+        };
+        wsc.onerror = function (evt) {
+            if (evt.reason) {
+                oUl.innerHTML += "<li><span style='color: rgb(255, 0, 0)'>" + getLocalTime() + " " + evt.reason + "</li>";
+            }
+            scrollUL(oUl.lastElementChild);
+        };
+        wsc.onmessage = function (evt) {
+            oUl.innerHTML += "<li><pre><xmp>" + evt.data + "</xmp></pre></li>";
+            scrollUL(oUl.lastElementChild);
+        };
+    }
+    oAddress.onkeypress = function (e) {
+        var keycode = e.which;
+        if (keycode == 13)
+            oConnect.click();
+    }
+
+    oSend.onclick = function () {
+        var cmd = oInput.value.replace(/^\s+|\s+$/gm, '');
+        if (connected && cmd) {
+            wsc.send(cmd);
+            oUl.innerHTML += "<li><p align='right'><span style='color: rgb(58, 41, 211)'>" + cmd + "</span></p></li>";
+            scrollUL(oUl.lastElementChild);
+            oInput.value = "";
+        }
+    };
+
+    oInput.onkeypress = function (e) {
+        var keycode = e.which;
+        if (keycode == 13)
+            oSend.click();
+    }
+
+    oClear.onclick = function () {
+        oUl.innerHTML = "";
+        // var _li = oUl.getElementsByTagName('li');
+        // for (var i = _li.length - 1; i >= 0; i--) {
+        //     oUl.removeChild(_li[i]);
+        // }
+    };
+
+    // copy mode
+    /**
+     * options:
+     * {
+     *  menus:[{
+     *    name: string,
+     *    onClick: Function
+     *  }],
+     * }
+     */
+    const ContextMenu = function (options) {
+        let instance;
+
+        function createMenu() {
+            const ul = document.createElement("ul");
+            ul.classList.add("custom-context-menu");
+            const { menus } = options;
+            if (menus && menus.length > 0) {
+                for (let menu of menus) {
+                    const li = document.createElement("li");
+                    li.textContent = menu.name;
+                    li.onclick = menu.onClick;
+                    ul.appendChild(li);
+                }
+            }
+            const body = document.querySelector("body");
+            body.appendChild(ul);
+            return ul;
+        }
+
+        return {
+            getInstance: function () {
+                if (!instance) {
+                    instance = createMenu();
+                }
+                return instance;
+            },
+        };
+    };
+
+    const contextMenu = ContextMenu({
+        menus: [
+            {
+                name: "copy line to command",
+                onClick: function (e) {
+                    oInput.value = li_content;
+                    oInput.focus();
+                }
+            }
+        ]
+    });
+
+    function showMenu(e) {
+        li_content = e.target.outerText;
+
+        const menus = contextMenu.getInstance();
+        menus.style.top = `${e.clientY}px`;
+        menus.style.left = `${e.clientX}px`;
+        menus.classList.remove("hidden");
+    }
+
+    function hideMenu(event) {
+        const menus = contextMenu.getInstance();
+        menus.classList.add("hidden");
+    }
+
+    
+    document.getElementById('content').oncontextmenu = function (e) {
+        e.preventDefault();
+        showMenu(e);
+    }
+    document.onclick = function () {
+        hideMenu();
+    }
+    // document.getElementById('content').onclick = function(e){
+    //     e.target.style.backgroundColor = "blue";
+    // }
+</script>
