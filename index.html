@@ -77,6 +77,15 @@
             oInput.style.display = "none";
             oSend.style.display = "none";
         }
+
+        if(oUl.innerHTML=="")
+        {
+            oClear.style.display = "none";
+        }
+        else
+        {
+            oClear.style.display = "inline-block";
+        }
     }, 100);
 
     oConnect.onclick = function () {
@@ -106,7 +115,8 @@
             scrollUL(oUl.lastElementChild);
         };
         wsc.onmessage = function (evt) {
-            oUl.innerHTML += "<li><pre><xmp>" + evt.data + "</xmp></pre></li>";
+            var msg = evt.data.replaceAll('<','&lt;').replaceAll('>','&gt;');
+            oUl.innerHTML += "<li class='response-text'><small>" + msg + "</small></li>";
             scrollUL(oUl.lastElementChild);
         };
     }

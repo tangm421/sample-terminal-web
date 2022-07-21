@@ -3,6 +3,13 @@
     padding: 0;
 }
 
+.response-text {
+    font-family: Consolas, 'JetBrains Mono', 'DejaVu Sans Mono', 'Courier New', Courier;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    *white-space: normal !important;
+}
+
 .form {
     margin: 0;
     width: 100%;
